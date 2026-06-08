@@ -33,9 +33,40 @@ type FormData = {
 
 type SitoraReceptionistConfig = {
   clinicId?: string;
+  businessId?: string;
   clinicName?: string;
+  businessName?: string;
   clinicEmail?: string;
+  businessEmail?: string;
   apiUrl?: string;
+
+  sector?: string;
+  assistantLabel?: string;
+  headerTitle?: string;
+  bubbleText?: string;
+
+  customerLabel?: string;
+  businessLabel?: string;
+  enquiryLabel?: string;
+
+  services?: string[];
+  customerTypes?: string[];
+  preferredTimes?: string[];
+  urgencyOptions?: string[];
+
+  welcomeMessages?: string[];
+  serviceQuestion?: string;
+  customerTypeQuestion?: string;
+  preferredTimeQuestion?: string;
+  urgencyQuestion?: string;
+  detailsQuestion?: string;
+
+  safetyMessage?: string;
+  appointmentDisclaimer?: string;
+  consentText?: string;
+  submitButtonText?: string;
+  confirmationMessages?: string[];
+  requiredFieldsMessage?: string;
 };
 
 declare global {
@@ -47,17 +78,7 @@ declare global {
 const widgetConfig =
   typeof window !== "undefined" ? window.SitoraReceptionistConfig || {} : {};
 
-const clinicConfig = {
-  clinicId: widgetConfig.clinicId || "demo-clinic",
-  clinicName: widgetConfig.clinicName || "Demo Dental Practice",
-  clinicEmail: widgetConfig.clinicEmail || "hello@sitora.co.uk",
-  apiUrl:
-    widgetConfig.apiUrl ||
-    import.meta.env.VITE_SITORA_API_URL ||
-    "http://localhost:3000/api/receptionist/enquiry",
-};
-
-const treatments = [
+const defaultServices = [
   "Check-up",
   "Emergency appointment",
   "Hygiene / clean",
@@ -76,9 +97,110 @@ const treatments = [
   "I'm not sure",
 ];
 
-const preferredTimes = ["Morning", "Afternoon", "After 5pm", "Anytime"];
+const clinicName =
+  widgetConfig.clinicName || widgetConfig.businessName || "Demo Clinic";
 
-const urgencyOptions = ["Today / urgent", "This week", "Next week", "Flexible"];
+const clinicConfig = {
+  clinicId: widgetConfig.clinicId || widgetConfig.businessId || "demo-clinic",
+
+  clinicName,
+
+  clinicEmail:
+    widgetConfig.clinicEmail ||
+    widgetConfig.businessEmail ||
+    "hello@sitora.co.uk",
+
+  apiUrl:
+    widgetConfig.apiUrl ||
+    import.meta.env.VITE_SITORA_API_URL ||
+    "http://localhost:3000/api/receptionist/enquiry",
+
+  sector: widgetConfig.sector || "dental",
+
+  assistantLabel: widgetConfig.assistantLabel || "Digital Receptionist",
+
+  headerTitle: widgetConfig.headerTitle || "Enquiry",
+
+  bubbleText: widgetConfig.bubbleText || "Need help?",
+
+  customerLabel: widgetConfig.customerLabel || "patient",
+
+  businessLabel: widgetConfig.businessLabel || "practice",
+
+  enquiryLabel: widgetConfig.enquiryLabel || "enquiry",
+
+  services:
+    widgetConfig.services && widgetConfig.services.length > 0
+      ? widgetConfig.services
+      : defaultServices,
+
+  customerTypes:
+    widgetConfig.customerTypes && widgetConfig.customerTypes.length > 0
+      ? widgetConfig.customerTypes
+      : ["New patient", "Existing patient"],
+
+  preferredTimes:
+    widgetConfig.preferredTimes && widgetConfig.preferredTimes.length > 0
+      ? widgetConfig.preferredTimes
+      : ["Morning", "Afternoon", "After 5pm", "Anytime"],
+
+  urgencyOptions:
+    widgetConfig.urgencyOptions && widgetConfig.urgencyOptions.length > 0
+      ? widgetConfig.urgencyOptions
+      : ["Today / urgent", "This week", "Next week", "Flexible"],
+
+  welcomeMessages:
+    widgetConfig.welcomeMessages && widgetConfig.welcomeMessages.length > 0
+      ? widgetConfig.welcomeMessages
+      : [
+          `Good afternoon, welcome to ${clinicName}.`,
+          "I can help pass your enquiry to the team.",
+          "This should only take around 60 seconds.",
+        ],
+
+  serviceQuestion: widgetConfig.serviceQuestion || "What do you need help with?",
+
+  customerTypeQuestion:
+    widgetConfig.customerTypeQuestion || "Are you a new or existing patient?",
+
+  preferredTimeQuestion:
+    widgetConfig.preferredTimeQuestion ||
+    "When would you prefer the team to contact you or arrange an appointment?",
+
+  urgencyQuestion: widgetConfig.urgencyQuestion || "How soon do you need help?",
+
+  detailsQuestion:
+    widgetConfig.detailsQuestion ||
+    "Please leave your details so the team can contact you.",
+
+  safetyMessage:
+    widgetConfig.safetyMessage ||
+    "If your symptoms become severe, or you have swelling affecting breathing or swallowing, uncontrolled bleeding, or serious trauma, please seek urgent medical help immediately.",
+
+  appointmentDisclaimer:
+    widgetConfig.appointmentDisclaimer ||
+    "This is not a confirmed appointment. The team will contact you to confirm availability.",
+
+  consentText:
+    widgetConfig.consentText ||
+    "I consent to the team contacting me about this enquiry.",
+
+  submitButtonText: widgetConfig.submitButtonText || "Send enquiry",
+
+  confirmationMessages:
+    widgetConfig.confirmationMessages &&
+    widgetConfig.confirmationMessages.length > 0
+      ? widgetConfig.confirmationMessages
+      : [
+          "Your enquiry has been sent to the team.",
+          "They will contact you to confirm the next available option.",
+          "Please remember this is not a confirmed appointment until the team contacts you.",
+        ],
+
+  requiredFieldsMessage:
+    widgetConfig.requiredFieldsMessage ||
+    "Please add your name, a valid mobile number, a valid email address, and consent before sending.",
+};
 
 const initialFormData: FormData = {
   treatment: "",
@@ -177,11 +299,7 @@ export default function App() {
     setSubmitError("");
     messageIdRef.current = 1;
 
-    addBotMessages([
-      `Good afternoon, welcome to ${clinicConfig.clinicName}.`,
-      "I can help pass your enquiry to the practice team.",
-      "This should only take around 60 seconds.",
-    ]);
+    addBotMessages(clinicConfig.welcomeMessages);
   }
 
   function closeWidget() {
@@ -204,20 +322,24 @@ export default function App() {
     updateField("treatment", treatment);
     addUserMessage(treatment);
 
-    const emergencyMessage =
-      treatment === "Emergency appointment"
-        ? [
-            "I’m sorry you’re dealing with that.",
-            "I’ll ask a few quick questions so the practice team has the right information.",
-          ]
-        : [
-            "Thank you.",
-            "I’ll ask a few quick questions so the practice team can contact you properly.",
-          ];
+    const urgentKeywords = ["emergency", "urgent", "pain", "injury", "accident"];
+    const isUrgentService = urgentKeywords.some((keyword) =>
+      treatment.toLowerCase().includes(keyword)
+    );
+
+    const introMessage = isUrgentService
+      ? [
+          "I’m sorry you’re dealing with that.",
+          "I’ll ask a few quick questions so the team has the right information.",
+        ]
+      : [
+          "Thank you.",
+          "I’ll ask a few quick questions so the team can contact you properly.",
+        ];
 
     goToStep("patientType", [
-      ...emergencyMessage,
-      "Are you a new or existing patient?",
+      ...introMessage,
+      clinicConfig.customerTypeQuestion,
     ]);
   }
 
@@ -226,8 +348,8 @@ export default function App() {
     addUserMessage(patientType);
 
     goToStep("preferredTime", [
-      "When would you prefer the practice to contact you or arrange an appointment?",
-      "This does not confirm an appointment. The team will contact you to confirm availability.",
+      clinicConfig.preferredTimeQuestion,
+      clinicConfig.appointmentDisclaimer,
     ]);
   }
 
@@ -235,24 +357,25 @@ export default function App() {
     updateField("preferredTime", time);
     addUserMessage(time);
 
-    goToStep("urgency", ["How soon do you need help?"]);
+    goToStep("urgency", [clinicConfig.urgencyQuestion]);
   }
 
   function selectUrgency(urgency: string) {
     updateField("urgency", urgency);
     addUserMessage(urgency);
 
-    const warning =
-      formData.treatment === "Emergency appointment"
-        ? [
-            "If you have severe swelling, uncontrolled bleeding, serious trauma, or difficulty breathing or swallowing, please seek urgent medical help immediately.",
-          ]
-        : [];
+    const treatmentLower = formData.treatment.toLowerCase();
+    const urgencyLower = urgency.toLowerCase();
 
-    goToStep("details", [
-      ...warning,
-      "Please leave your details so the practice team can contact you.",
-    ]);
+    const shouldShowSafety =
+      treatmentLower.includes("emergency") ||
+      treatmentLower.includes("urgent") ||
+      urgencyLower.includes("urgent") ||
+      urgencyLower.includes("today");
+
+    const warning = shouldShowSafety ? [clinicConfig.safetyMessage] : [];
+
+    goToStep("details", [...warning, clinicConfig.detailsQuestion]);
   }
 
   function resetWidget() {
@@ -263,10 +386,7 @@ export default function App() {
     messageIdRef.current = 1;
     setStep("treatment");
 
-    addBotMessages([
-      "No problem. Let’s start again.",
-      "What treatment are you interested in?",
-    ]);
+    addBotMessages(["No problem. Let’s start again.", clinicConfig.serviceQuestion]);
   }
 
   async function submitEnquiry() {
@@ -279,6 +399,10 @@ export default function App() {
       clinicId: clinicConfig.clinicId,
       clinicName: clinicConfig.clinicName,
       clinicEmail: clinicConfig.clinicEmail,
+      sector: clinicConfig.sector,
+      enquiryLabel: clinicConfig.enquiryLabel,
+      customerLabel: clinicConfig.customerLabel,
+      businessLabel: clinicConfig.businessLabel,
       treatment: formData.treatment,
       patientType: formData.patientType,
       preferredTime: formData.preferredTime,
@@ -313,14 +437,12 @@ export default function App() {
 
       addBotMessages([
         `Thank you, ${formData.name || "your enquiry has been received"}.`,
-        "Your enquiry has been sent to the practice team.",
-        "They will contact you to confirm the next available option.",
-        "Please remember this is not a confirmed appointment until the practice contacts you.",
+        ...clinicConfig.confirmationMessages,
       ]);
     } catch (error) {
       console.error(error);
       setSubmitError(
-        "Sorry, your enquiry could not be sent. Please try again or contact the practice directly."
+        "Sorry, your enquiry could not be sent. Please try again or contact the team directly."
       );
     } finally {
       setIsSubmitting(false);
@@ -345,8 +467,8 @@ export default function App() {
 
   function getStepLabel(currentStep: Step) {
     const labelMap: Record<string, string> = {
-      treatment: "Treatment",
-      patientType: "Patient type",
+      treatment: "Service",
+      patientType: clinicConfig.customerLabel,
       preferredTime: "Preferred time",
       urgency: "Urgency",
       details: "Your details",
@@ -372,7 +494,7 @@ export default function App() {
       {step === "closed" && (
         <button className="sitora-bubble" onClick={openWidget}>
           <MessageCircle size={28} />
-          <span>Dental Receptionist</span>
+          <span>{clinicConfig.bubbleText}</span>
         </button>
       )}
 
@@ -387,8 +509,8 @@ export default function App() {
               )}
 
               <div>
-               <p className="sitora-label">{clinicConfig.clinicName}</p>
-                <h2>Dental enquiry</h2>
+                <p className="sitora-label">{clinicConfig.assistantLabel}</p>
+                <h2>{clinicConfig.headerTitle}</h2>
               </div>
             </div>
 
@@ -432,9 +554,7 @@ export default function App() {
               <button
                 className="primary-button"
                 onClick={() =>
-                  goToStep("treatment", [
-                    "What treatment are you interested in?",
-                  ])
+                  goToStep("treatment", [clinicConfig.serviceQuestion])
                 }
               >
                 Start enquiry
@@ -443,13 +563,13 @@ export default function App() {
 
             {step === "treatment" && showOptions && (
               <div className="option-grid">
-                {treatments.map((treatment) => (
+                {clinicConfig.services.map((service) => (
                   <button
-                    key={treatment}
+                    key={service}
                     className="option-button"
-                    onClick={() => selectTreatment(treatment)}
+                    onClick={() => selectTreatment(service)}
                   >
-                    {treatment}
+                    {service}
                   </button>
                 ))}
               </div>
@@ -457,25 +577,21 @@ export default function App() {
 
             {step === "patientType" && showOptions && (
               <div className="option-grid two">
-                <button
-                  className="option-button"
-                  onClick={() => selectPatientType("New patient")}
-                >
-                  New patient
-                </button>
-
-                <button
-                  className="option-button"
-                  onClick={() => selectPatientType("Existing patient")}
-                >
-                  Existing patient
-                </button>
+                {clinicConfig.customerTypes.map((customerType) => (
+                  <button
+                    key={customerType}
+                    className="option-button"
+                    onClick={() => selectPatientType(customerType)}
+                  >
+                    {customerType}
+                  </button>
+                ))}
               </div>
             )}
 
             {step === "preferredTime" && showOptions && (
               <div className="option-grid two">
-                {preferredTimes.map((time) => (
+                {clinicConfig.preferredTimes.map((time) => (
                   <button
                     key={time}
                     className="option-button"
@@ -489,7 +605,7 @@ export default function App() {
 
             {step === "urgency" && showOptions && (
               <div className="option-grid two">
-                {urgencyOptions.map((urgency) => (
+                {clinicConfig.urgencyOptions.map((urgency) => (
                   <button
                     key={urgency}
                     className="option-button"
@@ -550,21 +666,19 @@ export default function App() {
                     checked={formData.consent}
                     onChange={(e) => updateField("consent", e.target.checked)}
                   />
-                  <span>
-                    I consent to the practice contacting me about this enquiry.
-                  </span>
+                  <span>{clinicConfig.consentText}</span>
                 </label>
 
                 <div className="summary-card">
                   <p className="summary-title">Enquiry summary</p>
 
                   <div className="summary-row">
-                    <span>Treatment</span>
+                    <span>Service</span>
                     <strong>{formData.treatment || "Not selected"}</strong>
                   </div>
 
                   <div className="summary-row">
-                    <span>Patient</span>
+                    <span>{clinicConfig.customerLabel}</span>
                     <strong>{formData.patientType || "Not selected"}</strong>
                   </div>
 
@@ -580,14 +694,12 @@ export default function App() {
                 </div>
 
                 <div className="warning-box">
-                  This is not a confirmed appointment. The practice team will
-                  contact you to confirm availability.
+                  {clinicConfig.appointmentDisclaimer}
                 </div>
 
                 {!canSubmit && (
                   <p className="validation-note">
-                    Please add your name, a valid mobile number, a valid email
-                    address, and consent before sending.
+                    {clinicConfig.requiredFieldsMessage}
                   </p>
                 )}
 
@@ -598,20 +710,14 @@ export default function App() {
                   disabled={!canSubmit || isSubmitting}
                   onClick={submitEnquiry}
                 >
-                  {isSubmitting
-                    ? "Sending enquiry..."
-                    : "Send enquiry to practice"}
+                  {isSubmitting ? "Sending enquiry..." : clinicConfig.submitButtonText}
                 </button>
               </>
             )}
 
             {step === "confirmation" && showOptions && (
               <>
-                <div className="warning-box">
-                  If your symptoms become severe, or you have swelling affecting
-                  breathing or swallowing, uncontrolled bleeding, or serious
-                  trauma, please seek urgent medical help immediately.
-                </div>
+                <div className="warning-box">{clinicConfig.safetyMessage}</div>
 
                 <button className="primary-button" onClick={resetWidget}>
                   Start a new enquiry
